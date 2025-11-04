@@ -7,17 +7,25 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-.env
-dist-ssr
-*.local
+# Dependencies / build
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.cache/
+coverage/
 
-# Editor directories and files
+# Env files (keep all variants out of git)
+.env
+.env.*
+!.env.example   # keep a template if you make one
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
