@@ -20,7 +20,7 @@ export default function App() {
       name: "Sgt. Goose",
       desc: "The blunt truth-teller. Tough love, no fluff.",
       img: "/images/sergeantgoose.png",
-      bg: "bg-red-50 border-red-300",
+      bg: "bg-green-50 border-green-300",
     },
     {
       id: "go-getter-goose",
@@ -31,7 +31,7 @@ export default function App() {
     },
   ];
 
-  // Load browser voices once (useful if you later want fallback TTS)
+  // Preload browser TTS voices
   useEffect(() => {
     const loadVoices = () => window.speechSynthesis?.getVoices?.();
     if ("speechSynthesis" in window) {
@@ -52,7 +52,7 @@ export default function App() {
       const res = await axios.post("/api/chat", {
         persona,
         message: newUserMsg.message,
-        history,
+        history: [newUserMsg, ...history], // ensures current persona is sent too
       });
 
       const newReply = {
@@ -89,11 +89,18 @@ export default function App() {
     if (e.key === "Enter") sendMessage();
   };
 
+  // Assign chat bubble colors by persona
+  const bubbleStyles = {
+    "ol-goose": "bg-yellow-50 border-l-4 border-yellow-400 text-gray-800",
+    "sergeant-goose": "bg-green-50 border-l-4 border-green-500 text-gray-900",
+    "go-getter-goose": "bg-blue-50 border-l-4 border-blue-400 text-gray-900",
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-6">
       <h1 className="text-4xl font-bold mb-8 text-blue-700">Choose Your Goose</h1>
 
-      {/* Goose Cards */}
+      {/* Goose Selection */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-10">
         {geese.map((g) => (
           <div
@@ -114,7 +121,7 @@ export default function App() {
         ))}
       </div>
 
-      {/* Input Row */}
+      {/* Input Area */}
       <div className="flex w-full max-w-xl gap-2">
         <input
           className="flex-1 border p-2 rounded"
@@ -139,29 +146,22 @@ export default function App() {
         </button>
       </div>
 
-      {/* Conversation History (Newest on Top) */}
+      {/* Chat History */}
       <div className="w-full max-w-3xl mt-10 space-y-6">
-        {history.map((msg, idx) => (
-          <div key={idx}>
-            {msg.role === "user" ? (
-              <div className="bg-blue-100 border-l-4 border-blue-400 p-3 rounded">
-                <strong>
-                  {geese.find((g) => g.id === msg.persona)?.name}:
-                </strong>{" "}
-                {msg.message}
-              </div>
-            ) : (
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                <strong>
-                  {geese.find((g) => g.id === msg.persona)?.name}:
-                </strong>
-                <p className="mt-1 text-gray-800 whitespace-pre-line">
-                  {msg.message}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
+        {history.map((msg, idx) => {
+          const goose = geese.find((g) => g.id === msg.persona);
+          const bubbleClass =
+            msg.role === "assistant"
+              ? bubbleStyles[msg.persona] || "bg-gray-100 border-l-4 border-gray-300"
+              : "bg-blue-100 border-l-4 border-blue-400";
+
+          return (
+            <div key={idx} className={`${bubbleClass} p-4 rounded`}>
+              <strong>{goose?.name}:</strong>
+              <p className="mt-1 whitespace-pre-line">{msg.message}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -7,22 +7,26 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 dotenv.config();
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
 
-// Properly resolve directory for ESM
+// Resolve directory path for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Refined persona definitions with accent, cadence, and early risk awareness
+/* -----------------------------------------------------------
+   PERSONA DEFINITIONS
+----------------------------------------------------------- */
 const personaPrompts = {
   "ol-goose": `
 You are Ol' Goose — a grounded mentor from eastern Oklahoma.
-Speak in a light Southern rhythm—plain, steady, and warm.
-Keep sentences short and natural, like a friendly talk on a porch.
+Speak in a light Southern rhythm — plain, steady, and warm.
+Keep sentences short and natural, like friendly porch talk.
 Use gentle humor and grounded wisdom, not slang or exaggeration.
 Value practicality and kindness over flash.
 If the user seems frustrated or burned out, acknowledge it calmly and help them think with clarity.
@@ -51,7 +55,9 @@ Example tone: “Alright — if you’re ready to pivot, then pivot with purpose
 `
 };
 
-// Simple keyword-based risk detector (optional hook; safe to leave in)
+/* -----------------------------------------------------------
+   BASIC RISK ANALYZER
+----------------------------------------------------------- */
 function analyzeRisk(message) {
   const m = (message || "").toLowerCase();
   const risky = ["quit", "burn out", "burnout", "hate my job", "start over", "change everything", "blow it up", "walk away"];
@@ -61,11 +67,14 @@ function analyzeRisk(message) {
   return "medium";
 }
 
-// Chat endpoint
+/* -----------------------------------------------------------
+   MAIN CHAT ENDPOINT
+----------------------------------------------------------- */
 app.post("/api/chat", async (req, res) => {
   const { persona, message, history } = req.body;
 
   try {
+    // Build a simple summary of conversation history
     const conversationSummary = (history || [])
       .map((msg) => {
         const label =
@@ -83,36 +92,39 @@ app.post("/api/chat", async (req, res) => {
     const personaPrompt = `
 ${personaPrompts[persona]}
 
-User risk tolerance (rough): ${risk}
+User risk tolerance (rough estimate): ${risk}
 
 Conversation so far:
-${conversationSummary || "(none yet)"}
+${conversationSummary || "(no previous messages)"}
 
 Respond naturally as ${persona}, in your own tone.
-Keep it short, helpful, and always end with a single guiding or reflective question.
+Keep it short, helpful, and always end with a guiding or reflective question.
 User: "${message}"
 `;
 
-    const personaResponse = await openai.chat.completions.create({
+    // Generate text reply
+    const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.7,
-      messages: [{ role: "user", content: personaPrompt }],
+      messages: [{ role: "user", content: personaPrompt }]
     });
 
-    const persona_voice = personaResponse.choices[0].message.content.trim();
+    const persona_voice = response.choices[0].message.content.trim();
 
-const voiceModel = "gpt-4o-mini-tts";
-const voiceName =
-  persona === "sergeant-goose"
-    ? "echo"          // Sgt. Goose
-    : persona === "go-getter-goose"
-    ? "verse"         // Go-Getter Goose
-    : "coral";        // Ol' Goose (fallback branch)
+    // Choose voice model and style
+    const voiceModel = "gpt-4o-mini-tts";
+    const voiceName =
+      persona === "sergeant-goose"
+        ? "onyx" // Deep, authoritative
+        : persona === "go-getter-goose"
+        ? "verse" // Fast and bright
+        : "river"; // Still searching
 
+    // Generate speech output
     const speech = await openai.audio.speech.create({
       model: voiceModel,
       voice: voiceName,
-      input: persona_voice,
+      input: persona_voice
     });
 
     const audioBuffer = Buffer.from(await speech.arrayBuffer());
@@ -120,17 +132,22 @@ const voiceName =
 
     res.json({ persona_voice, audio_url: audioBase64 });
   } catch (err) {
-    console.error(err);
+    console.error("Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Serve frontend in production
+/* -----------------------------------------------------------
+   STATIC FRONTEND (Vite build)
+----------------------------------------------------------- */
 app.use(express.static(path.join(__dirname, "dist")));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
+/* -----------------------------------------------------------
+   START SERVER
+----------------------------------------------------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Goose Guidance server running on http://localhost:${PORT}`);
