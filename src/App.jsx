@@ -7,31 +7,47 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
 
+  // Persona palette + card colors
   const geese = [
     {
       id: "ol-goose",
       name: "Ol' Goose",
       desc: "The empathetic mentor. Calm, wise, and understanding.",
       img: "/images/olgoose.png",
-      bg: "bg-yellow-50 border-yellow-300",
+      cardBg: "bg-yellow-50 border-yellow-300",
+      ring: "ring-yellow-300",
+      bubbleBg: "bg-yellow-50",
+      bubbleBorder: "border-yellow-500",
+      nameColor: "text-yellow-900",
     },
     {
       id: "sergeant-goose",
       name: "Sgt. Goose",
       desc: "The blunt truth-teller. Tough love, no fluff.",
       img: "/images/sergeantgoose.png",
-      bg: "bg-green-50 border-green-300",
+      cardBg: "bg-green-50 border-green-300", // << green
+      ring: "ring-green-400",
+      bubbleBg: "bg-green-50",
+      bubbleBorder: "border-green-600",
+      nameColor: "text-green-900",
     },
     {
       id: "go-getter-goose",
       name: "Go-Getter Goose",
       desc: "The motivator. High energy, all gas no brakes.",
       img: "/images/gogettergoose.png",
-      bg: "bg-blue-50 border-blue-300",
+      cardBg: "bg-blue-50 border-blue-300",
+      ring: "ring-blue-400",
+      bubbleBg: "bg-blue-50",
+      bubbleBorder: "border-blue-600",
+      nameColor: "text-blue-900",
     },
   ];
 
-  // Preload browser TTS voices
+  // Helpers to pull classes by persona
+  const byPersona = (pid, key) =>
+    (geese.find((g) => g.id === pid) || geese[0])[key];
+
   useEffect(() => {
     const loadVoices = () => window.speechSynthesis?.getVoices?.();
     if ("speechSynthesis" in window) {
@@ -52,7 +68,7 @@ export default function App() {
       const res = await axios.post("/api/chat", {
         persona,
         message: newUserMsg.message,
-        history: [newUserMsg, ...history], // ensures current persona is sent too
+        history,
       });
 
       const newReply = {
@@ -89,26 +105,18 @@ export default function App() {
     if (e.key === "Enter") sendMessage();
   };
 
-  // Assign chat bubble colors by persona
-  const bubbleStyles = {
-    "ol-goose": "bg-yellow-50 border-l-4 border-yellow-400 text-gray-800",
-    "sergeant-goose": "bg-green-50 border-l-4 border-green-500 text-gray-900",
-    "go-getter-goose": "bg-blue-50 border-l-4 border-blue-400 text-gray-900",
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-6">
       <h1 className="text-4xl font-bold mb-8 text-blue-700">Choose Your Goose</h1>
 
-      {/* Goose Selection */}
+      {/* Goose Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-10">
         {geese.map((g) => (
           <div
             key={g.id}
             onClick={() => setPersona(g.id)}
-            className={`cursor-pointer border-2 rounded-xl p-4 shadow hover:shadow-lg transition-all text-center ${
-              persona === g.id ? "ring-4 ring-blue-400" : ""
-            } ${g.bg}`}
+            className={`cursor-pointer border-2 rounded-xl p-4 shadow hover:shadow-lg transition-all text-center
+              ${g.cardBg} ${persona === g.id ? `ring-4 ${g.ring}` : ""}`}
           >
             <img
               src={g.img}
@@ -116,12 +124,12 @@ export default function App() {
               className="w-28 h-28 mx-auto rounded-full object-cover mb-3"
             />
             <h3 className="font-bold text-lg">{g.name}</h3>
-            <p className="text-sm text-gray-600">{g.desc}</p>
+            <p className="text-sm text-gray-700">{g.desc}</p>
           </div>
         ))}
       </div>
 
-      {/* Input Area */}
+      {/* Input Row */}
       <div className="flex w-full max-w-xl gap-2">
         <input
           className="flex-1 border p-2 rounded"
@@ -138,7 +146,7 @@ export default function App() {
           🎙
         </button>
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           onClick={sendMessage}
           disabled={loading}
         >
@@ -146,19 +154,31 @@ export default function App() {
         </button>
       </div>
 
-      {/* Chat History */}
+      {/* Conversation History (Newest on Top) */}
       <div className="w-full max-w-3xl mt-10 space-y-6">
         {history.map((msg, idx) => {
-          const goose = geese.find((g) => g.id === msg.persona);
-          const bubbleClass =
-            msg.role === "assistant"
-              ? bubbleStyles[msg.persona] || "bg-gray-100 border-l-4 border-gray-300"
-              : "bg-blue-100 border-l-4 border-blue-400";
-
+          if (msg.role === "user") {
+            // user bubble stays neutral so it's easy to scan
+            return (
+              <div key={idx} className="bg-blue-100 border-l-4 border-blue-400 p-3 rounded">
+                <strong>{byPersona(msg.persona, "name")}: </strong>
+                {msg.message}
+              </div>
+            );
+          }
+          // assistant bubble uses persona color set
           return (
-            <div key={idx} className={`${bubbleClass} p-4 rounded`}>
-              <strong>{goose?.name}:</strong>
-              <p className="mt-1 whitespace-pre-line">{msg.message}</p>
+            <div
+              key={idx}
+              className={`${byPersona(msg.persona, "bubbleBg")} border-l-4 ${byPersona(
+                msg.persona,
+                "bubbleBorder"
+              )} p-4 rounded`}
+            >
+              <strong className={byPersona(msg.persona, "nameColor")}>
+                {byPersona(msg.persona, "name")}:
+              </strong>
+              <p className="mt-1 text-gray-900 whitespace-pre-line">{msg.message}</p>
             </div>
           );
         })}

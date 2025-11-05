@@ -12,12 +12,14 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
 
-// Resolve directory path for ESM
+// Resolve __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize OpenAI
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 /* -----------------------------------------------------------
    PERSONA DEFINITIONS
@@ -25,12 +27,11 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const personaPrompts = {
   "ol-goose": `
 You are Ol' Goose — a grounded mentor from eastern Oklahoma.
-Speak in a light Southern rhythm — plain, steady, and warm.
+Speak with a subtle Southern warmth — calm, confident, and full of life experience.
+Sound like an older man who’s lived a little: slow cadence, clear tone, just a touch of twang.
 Keep sentences short and natural, like friendly porch talk.
 Use gentle humor and grounded wisdom, not slang or exaggeration.
-Value practicality and kindness over flash.
-If the user seems frustrated or burned out, acknowledge it calmly and help them think with clarity.
-Always end with one guiding question that helps them decide their next move.
+Always end with a single guiding question that helps the user reflect.
 Example tone: “Well now, that’s a fair thought. Let’s figure what makes sense before you jump.”
 `,
 
@@ -38,7 +39,6 @@ Example tone: “Well now, that’s a fair thought. Let’s figure what makes se
 You are Sergeant Goose — a disciplined instructor cut from the same cloth as Gunnery Sergeant Hartman.
 Your tone is clipped, direct, and commanding — every sentence matters.
 Push the user to face truth and act with discipline.
-If they mention risk or frustration, you don't scold — you channel that energy into action.
 Avoid filler words and long paragraphs. Stay sharp, concise, and focused.
 Always end with a decisive question or challenge.
 Example tone: “You’re talking about walking away from stability for a gamble. That’s not courage yet — it’s impulse. What’s your plan to earn the right to make that leap?”
@@ -49,10 +49,9 @@ You are Go-Getter Goose — an upbeat business-minded motivator.
 Speak like a sharp executive coach or consultant.
 Your tone is quick, confident, and focused on forward motion.
 Turn problems into opportunities and excuses into plans.
-If the user expresses burnout, acknowledge it, but shift immediately to strategy and control.
 Always end with a motivating, action-oriented question.
 Example tone: “Alright — if you’re ready to pivot, then pivot with purpose. What timeline makes this move realistic instead of reckless?”
-`
+`,
 };
 
 /* -----------------------------------------------------------
@@ -60,10 +59,26 @@ Example tone: “Alright — if you’re ready to pivot, then pivot with purpose
 ----------------------------------------------------------- */
 function analyzeRisk(message) {
   const m = (message || "").toLowerCase();
-  const risky = ["quit", "burn out", "burnout", "hate my job", "start over", "change everything", "blow it up", "walk away"];
-  const cautious = ["stable", "secure", "steady", "safe", "risk averse", "risk-averse"];
-  if (risky.some(k => m.includes(k))) return "high";
-  if (cautious.some(k => m.includes(k))) return "low";
+  const risky = [
+    "quit",
+    "burn out",
+    "burnout",
+    "hate my job",
+    "start over",
+    "change everything",
+    "blow it up",
+    "walk away",
+  ];
+  const cautious = [
+    "stable",
+    "secure",
+    "steady",
+    "safe",
+    "risk averse",
+    "risk-averse",
+  ];
+  if (risky.some((k) => m.includes(k))) return "high";
+  if (cautious.some((k) => m.includes(k))) return "low";
   return "medium";
 }
 
@@ -72,9 +87,10 @@ function analyzeRisk(message) {
 ----------------------------------------------------------- */
 app.post("/api/chat", async (req, res) => {
   const { persona, message, history } = req.body;
+  console.log(`🪶 Persona: ${persona} | Message: ${message}`);
 
   try {
-    // Build a simple summary of conversation history
+    // Build conversation context
     const conversationSummary = (history || [])
       .map((msg) => {
         const label =
@@ -102,38 +118,66 @@ Keep it short, helpful, and always end with a guiding or reflective question.
 User: "${message}"
 `;
 
+    console.log("📨 Sending prompt to OpenAI...");
+
     // Generate text reply
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.7,
-      messages: [{ role: "user", content: personaPrompt }]
+      messages: [{ role: "user", content: personaPrompt }],
     });
 
-    const persona_voice = response.choices[0].message.content.trim();
+    const persona_voice = response.choices[0]?.message?.content?.trim();
+    console.log("✅ OpenAI replied:", persona_voice?.slice(0, 120) || "(no text)");
 
-    // Choose voice model and style
+    if (!persona_voice) throw new Error("No text returned from OpenAI");
+
+    /* -----------------------------------------------------------
+       FIXED VOICE SETTINGS (no random or invalid voices)
+    ----------------------------------------------------------- */
     const voiceModel = "gpt-4o-mini-tts";
-    const voiceName =
-      persona === "sergeant-goose"
-        ? "onyx" // Deep, authoritative
-        : persona === "go-getter-goose"
-        ? "verse" // Fast and bright
-        : "river"; // Still searching
+    let voiceName;
+
+    if (persona === "sergeant-goose") {
+      voiceName = "onyx"; // Deep, commanding tone
+    } else if (persona === "go-getter-goose") {
+      voiceName = "verse"; // Energetic and businesslike
+    } else if (persona === "ol-goose") {
+      voiceName = "fable"; // Warm, grounded, Southern drawl
+    }
+
+    console.log(`🎤 Generating voice with model: ${voiceModel}, voice: ${voiceName}`);
 
     // Generate speech output
-    const speech = await openai.audio.speech.create({
-      model: voiceModel,
-      voice: voiceName,
-      input: persona_voice
-    });
+    let speech;
+    try {
+      speech = await openai.audio.speech.create({
+        model: voiceModel,
+        voice: voiceName,
+        input: persona_voice,
+      });
+    } catch (e) {
+      console.warn(`⚠️ Voice generation failed for ${voiceName}: ${e.message}`);
+      console.log("↩️ Retrying with fallback 'alloy'");
+      speech = await openai.audio.speech.create({
+        model: voiceModel,
+        voice: "alloy",
+        input: persona_voice,
+      });
+    }
 
     const audioBuffer = Buffer.from(await speech.arrayBuffer());
     const audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString("base64")}`;
 
+    console.log("✅ Response ready — sending back to client.");
     res.json({ persona_voice, audio_url: audioBase64 });
   } catch (err) {
-    console.error("Error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("❌ Chat error:", err);
+    res.status(500).json({
+      error: err.message,
+      fallback_message:
+        "Well now, looks like I’m having trouble speaking up. Try again in a bit.",
+    });
   }
 });
 
@@ -150,5 +194,5 @@ app.get("*", (req, res) => {
 ----------------------------------------------------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Goose Guidance server running on http://localhost:${PORT}`);
+  console.log(`🚀 Goose Guidance server running on http://localhost:${PORT}`);
 });
