@@ -101,13 +101,13 @@ User: "${message}"
 
     const persona_voice = personaResponse.choices[0].message.content.trim();
 
-    const voiceModel = "gpt-4o-mini-tts";
-    const voiceName =
-      persona === "sergeant-goose"
-        ? "alloy"
-        : persona === "go-getter-goose"
-        ? "verse"
-        : "sage";
+const voiceModel = "gpt-4o-mini-tts";
+const voiceName =
+  persona === "sergeant-goose"
+    ? "echo"          // Sgt. Goose
+    : persona === "go-getter-goose"
+    ? "verse"         // Go-Getter Goose
+    : "coral";        // Ol' Goose (fallback branch)
 
     const speech = await openai.audio.speech.create({
       model: voiceModel,
