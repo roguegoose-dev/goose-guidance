@@ -2,14 +2,17 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import { useNavigate } from "react-router-dom"; // ✅ add navigation
 
 export default function App() {
   const [persona, setPersona] = useState("ol-goose");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const [ocrText, setOcrText] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
+  const navigate = useNavigate(); // ✅ router navigation hook
 
-  // Persona palette & colors
   const geese = [
     {
       id: "ol-goose",
@@ -49,7 +52,6 @@ export default function App() {
   const byPersona = (pid, key) =>
     (geese.find((g) => g.id === pid) || geese[0])[key];
 
-  // Initialize voice recognition support
   useEffect(() => {
     const loadVoices = () => window.speechSynthesis?.getVoices?.();
     if ("speechSynthesis" in window) {
@@ -58,13 +60,13 @@ export default function App() {
     }
   }, []);
 
-  // Handle sending chat messages
   const sendMessage = async () => {
     if (!input.trim()) return;
-
     const newUserMsg = { role: "user", persona, message: input };
     setHistory((prev) => [newUserMsg, ...prev]);
     setInput("");
+    setOcrText("");
+    setImagePreview(null);
     setLoading(true);
 
     try {
@@ -73,20 +75,14 @@ export default function App() {
         message: newUserMsg.message,
         history,
       });
-
       const newReply = {
         role: "assistant",
         persona,
         message: res.data.persona_voice,
         audio: res.data.audio_url,
       };
-
       setHistory((prev) => [newReply, ...prev]);
-
-      if (res.data.audio_url) {
-        const audio = new Audio(res.data.audio_url);
-        audio.play();
-      }
+      if (res.data.audio_url) new Audio(res.data.audio_url).play();
     } catch (err) {
       console.error("❌ Chat error:", err);
     } finally {
@@ -94,7 +90,30 @@ export default function App() {
     }
   };
 
-  // Speech recognition (voice input)
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImagePreview(URL.createObjectURL(file));
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const res = await axios.post("/api/ocr", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setOcrText(res.data.extractedText || "");
+      setInput(res.data.extractedText || "");
+    } catch (err) {
+      console.error("❌ OCR error:", err);
+      setOcrText("Failed to read image text.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startListening = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -106,27 +125,29 @@ export default function App() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") sendMessage();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
       <Header />
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col items-center p-6">
         <h1 className="text-4xl font-bold mb-8 text-blue-700">
           Choose Your Goose
         </h1>
 
-        {/* Goose Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-10">
+        {/* Goose Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-6">
           {geese.map((g) => (
             <div
               key={g.id}
               onClick={() => setPersona(g.id)}
               className={`cursor-pointer border-2 rounded-xl p-4 shadow hover:shadow-lg transition-all text-center
-                ${g.cardBg} ${persona === g.id ? `ring-4 ${g.ring}` : ""}`}
+              ${g.cardBg} ${persona === g.id ? `ring-4 ${g.ring}` : ""}`}
             >
               <img
                 src={g.img}
@@ -139,52 +160,78 @@ export default function App() {
           ))}
         </div>
 
+        {/* More Geese button */}
+        <button
+          onClick={() => navigate("/more-geese")}
+          className="mb-10 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg shadow transition"
+        >
+          🪶 More Geese
+        </button>
+
         {/* Input Row */}
-        <div className="flex w-full max-w-xl gap-2">
-          <input
-            className="flex-1 border p-2 rounded"
-            placeholder="Ask Goose about your career..."
+        <div className="flex w-full max-w-xl gap-2 items-start">
+          <textarea
+            className="flex-1 border p-2 rounded resize-none h-28"
+            placeholder="Ask Goose... (Shift+Enter for newline)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <button
-            className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
-            onClick={startListening}
-            title="Voice Input"
-          >
-            🎙
-          </button>
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-            onClick={sendMessage}
-            disabled={loading}
-          >
-            {loading ? "Thinking..." : "Send"}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
+              onClick={startListening}
+              title="Voice Input"
+            >
+              🎙
+            </button>
+            <label className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 cursor-pointer text-center">
+              📷
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+            </label>
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+              onClick={sendMessage}
+              disabled={loading}
+            >
+              {loading ? "..." : "Send"}
+            </button>
+          </div>
         </div>
 
-        {/* Conversation History */}
-        <div className="w-full max-w-3xl mt-10 space-y-6">
-          {history.map((msg, idx) => {
-            if (msg.role === "user") {
-              return (
-                <div
-                  key={idx}
-                  className="bg-blue-100 border-l-4 border-blue-400 p-3 rounded"
-                >
-                  <strong>{byPersona(msg.persona, "name")}: </strong>
-                  {msg.message}
-                </div>
-              );
-            }
-            return (
+        {imagePreview && (
+          <div className="mt-4 text-center">
+            <img
+              src={imagePreview}
+              alt="Uploaded preview"
+              className="max-h-48 mx-auto rounded shadow"
+            />
+            <p className="text-xs text-gray-500 mt-1">(OCR text auto-added)</p>
+          </div>
+        )}
+
+        {/* Scrollable Chat History */}
+        <div className="w-full max-w-3xl mt-10 space-y-6 overflow-y-auto max-h-[60vh] border-t border-gray-300 pt-4">
+          {history.map((msg, idx) =>
+            msg.role === "user" ? (
               <div
                 key={idx}
-                className={`${byPersona(msg.persona, "bubbleBg")} border-l-4 ${byPersona(
-                  msg.persona,
-                  "bubbleBorder"
-                )} p-4 rounded`}
+                className="bg-blue-100 border-l-4 border-blue-400 p-3 rounded"
+              >
+                <strong>{byPersona(msg.persona, "name")}: </strong>
+                {msg.message}
+              </div>
+            ) : (
+              <div
+                key={idx}
+                className={`${byPersona(msg.persona, "bubbleBg")} border-l-4 ${
+                  byPersona(msg.persona, "bubbleBorder")
+                } p-4 rounded`}
               >
                 <strong className={byPersona(msg.persona, "nameColor")}>
                   {byPersona(msg.persona, "name")}:
@@ -193,8 +240,8 @@ export default function App() {
                   {msg.message}
                 </p>
               </div>
-            );
-          })}
+            )
+          )}
         </div>
       </main>
 
