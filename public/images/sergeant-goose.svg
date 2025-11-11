@@ -21,7 +21,8 @@
   <ellipse cx="256" cy="155" rx="70" ry="16" fill="#1b5e20"/>
   <path d="M206 155c14-22 34-38 50-42 16 4 36 20 50 42z" fill="#114a16"/>
   <rect x="246" y="132" width="20" height="10" fill="#e6b800"/>
-  <!-- simple rank chevrons on chest -->
-  <path d="M320 295l-20 28-20-28" fill="none" stroke="#1b5e20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M320 320l-20 28-20-28" fill="none" stroke="#1b5e20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- rank chevrons (3 upward) -->
+  <path d="M220 355l20-28 20 28" fill="none" stroke="#1b5e20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M220 330l20-28 20 28" fill="none" stroke="#1b5e20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M220 305l20-28 20 28" fill="none" stroke="#1b5e20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
