@@ -1,4 +1,3 @@
-// src/main.jsx
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -26,6 +25,10 @@ import WellnessGoose from "./pages/WellnessGoose.jsx";
 import Blog from "./pages/Blog.jsx";
 import Post from "./pages/Post.jsx";
 
+// Utility / Auth / Dev
+import SignIn from "./pages/SignIn.jsx";
+import Ping from "./pages/Ping.jsx";
+
 // Scroll to top on every route change
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -40,6 +43,9 @@ createRoot(document.getElementById("root")).render(
     <Router>
       <ScrollToTop />
       <Routes>
+        {/* 🔐 Auth */}
+        <Route path="/signin" element={<SignIn />} />
+
         {/* 🪶 Core Experience */}
         <Route path="/" element={<App />} />
 
@@ -53,13 +59,16 @@ createRoot(document.getElementById("root")).render(
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:id" element={<Post />} />
 
+        {/* 🧰 Utilities */}
+        <Route path="/ping" element={<Ping />} />
+
         {/* 📘 Info Pages */}
         <Route path="/about" element={<About />} />
         <Route path="/white-pages" element={<WhitePages />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<Terms />} />
 
-        {/* 🚪 Fallback */}
+        {/* 🚪 Catch-all */}
         <Route path="*" element={<App />} />
       </Routes>
     </Router>
