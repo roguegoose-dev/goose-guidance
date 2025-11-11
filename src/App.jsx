@@ -8,10 +8,10 @@ import { supabase } from "./lib/supabase";
 export default function App() {
   const navigate = useNavigate();
 
-  // 🔐 Auth State
+  // User session
   const [user, setUser] = useState(null);
 
-  // 🧠 Chat State
+  // Chat state
   const [persona, setPersona] = useState("ol-goose");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,13 +19,13 @@ export default function App() {
   const [ocrText, setOcrText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
 
-  // 🦢 Persona profiles
+  // Persona profiles
   const geese = [
     {
       id: "ol-goose",
       name: "Ol' Goose",
       desc: "The empathetic mentor. Calm, wise, and understanding.",
-      img: "/images/olgoose.png",
+      img: "/images/ol-goose.svg",
       cardBg: "bg-yellow-50 border-yellow-300",
       ring: "ring-yellow-300",
       bubbleBg: "bg-yellow-50",
@@ -35,8 +35,8 @@ export default function App() {
     {
       id: "sergeant-goose",
       name: "Sgt. Goose",
-      desc: "The blunt truth-teller. Tough love, no fluff.",
-      img: "/images/sergeantgoose.png",
+      desc: "Direct coach. Honest, sharp, disciplined.",
+      img: "/images/sergeant-goose.svg",
       cardBg: "bg-green-50 border-green-300",
       ring: "ring-green-400",
       bubbleBg: "bg-green-50",
@@ -47,7 +47,7 @@ export default function App() {
       id: "go-getter-goose",
       name: "Go-Getter Goose",
       desc: "The motivator. High energy, all gas no brakes.",
-      img: "/images/gogettergoose.png",
+      img: "/images/go-getter-goose.svg",
       cardBg: "bg-blue-50 border-blue-300",
       ring: "ring-blue-400",
       bubbleBg: "bg-blue-50",
@@ -59,25 +59,22 @@ export default function App() {
   const byPersona = (pid, key) =>
     (geese.find((g) => g.id === pid) || geese[0])[key];
 
-  // 🔐 Check for Supabase session on load
+  // Check Supabase session
   useEffect(() => {
-    const initAuth = async () => {
+    const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!data.user) navigate("/signin");
-      else setUser(data.user);
+      setUser(data?.user || null);
     };
-    initAuth();
+    checkUser();
 
-    // Real-time session listener
     const { data: listener } = supabase.auth.onAuthStateChange((_evt, session) => {
-      if (!session?.user) navigate("/signin");
-      else setUser(session.user);
+      setUser(session?.user || null);
     });
 
     return () => listener.subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
-  // 🎙 Voice synthesis setup
+  // Voice setup
   useEffect(() => {
     const loadVoices = () => window.speechSynthesis?.getVoices?.();
     if ("speechSynthesis" in window) {
@@ -86,7 +83,7 @@ export default function App() {
     }
   }, []);
 
-  // 💬 Chat logic
+  // Chat handler
   const sendMessage = async () => {
     if (!input.trim()) return;
     const newUserMsg = { role: "user", persona, message: input };
@@ -111,18 +108,15 @@ export default function App() {
       };
 
       setHistory((prev) => [newReply, ...prev]);
-
-      if (res.data.audio_url) {
-        new Audio(res.data.audio_url).play();
-      }
+      if (res.data.audio_url) new Audio(res.data.audio_url).play();
     } catch (err) {
-      console.error("❌ Chat error:", err);
+      console.error("Chat error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 📷 OCR handler
+  // OCR handler
   const handleImageUpload = async (file) => {
     if (!file) return;
     setImagePreview(URL.createObjectURL(file));
@@ -139,14 +133,14 @@ export default function App() {
       setOcrText(text);
       setInput(text);
     } catch (err) {
-      console.error("❌ OCR error:", err);
+      console.error("OCR error:", err);
       setOcrText("Failed to read image text.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🎙 Voice input
+  // Voice input
   const startListening = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -157,14 +151,14 @@ export default function App() {
     recognition.start();
   };
 
-  // 💾 File drop handler
+  // Drag-drop
   const handleDrop = (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file) handleImageUpload(file);
   };
 
-  // ⌨️ Send on Enter
+  // Send on Enter
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -172,13 +166,11 @@ export default function App() {
     }
   };
 
-  // 🧩 Logout
+  // Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate("/signin");
+    setUser(null);
   };
-
-  if (!user) return null; // prevents flicker before redirect
 
   return (
     <div
@@ -189,37 +181,45 @@ export default function App() {
       <Header />
 
       <main className="flex-1 flex flex-col items-center p-6">
+        {/* Top bar */}
         <div className="w-full flex justify-between items-center mb-4">
           <h1 className="text-4xl font-bold text-blue-700">Choose Your Goose</h1>
-          <button
-            onClick={handleLogout}
-            className="text-sm bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 border border-red-300"
-          >
-            Sign Out
-          </button>
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="text-sm bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 border border-red-300"
+            >
+              Sign Out
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/signin")}
+              className="text-sm bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 border border-blue-300"
+            >
+              Sign In
+            </button>
+          )}
         </div>
 
-        {/* Goose cards */}
+        {/* Persona cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-10">
           {geese.map((g) => (
             <div
               key={g.id}
               onClick={() => setPersona(g.id)}
-              className={`cursor-pointer border-2 rounded-xl p-4 shadow hover:shadow-lg transition-all text-center
+              className={`cursor-pointer border-2 rounded-xl overflow-hidden shadow hover:shadow-lg transition-all
               ${g.cardBg} ${persona === g.id ? `ring-4 ${g.ring}` : ""}`}
             >
-              <img
-                src={g.img}
-                alt={g.name}
-                className="w-28 h-28 mx-auto rounded-full object-cover mb-3"
-              />
-              <h3 className="font-bold text-lg">{g.name}</h3>
-              <p className="text-sm text-gray-700">{g.desc}</p>
+              <img src={g.img} alt={g.name} className="w-full h-auto" />
+              <div className="bg-white px-5 py-4">
+                <h3 className="font-bold text-lg">{g.name}</h3>
+                <p className="text-sm text-gray-700">{g.desc}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Input Row */}
+        {/* Input area */}
         <div className="flex w-full max-w-xl gap-2 items-start">
           <textarea
             className="flex-1 border p-2 rounded resize-none h-28"
@@ -232,12 +232,11 @@ export default function App() {
             <button
               className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
               onClick={startListening}
-              title="Voice Input"
             >
-              🎙
+              Mic
             </button>
             <label className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 cursor-pointer text-center">
-              📷
+              Img
               <input
                 type="file"
                 accept="image/*"
@@ -267,7 +266,7 @@ export default function App() {
           </div>
         )}
 
-        {/* History */}
+        {/* Chat history */}
         <div className="w-full max-w-3xl mt-10 overflow-y-auto h-[60vh] border-t border-gray-300 pt-4 px-2 rounded-lg bg-white shadow-inner">
           {history.map((msg, idx) => (
             <div
@@ -295,7 +294,7 @@ export default function App() {
           onClick={() => navigate("/more-geese")}
           className="mt-8 w-full max-w-xl bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-3 rounded-lg border border-blue-300 transition"
         >
-          🪶 Meet More Geese
+          Meet More Geese
         </button>
       </main>
 

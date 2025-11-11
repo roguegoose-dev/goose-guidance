@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Go-Getter Goose">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e7f2ff"/>
+      <stop offset="1" stop-color="#d7e9ff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="230" fill="url(#g3)"/>
+  <!-- body -->
+  <ellipse cx="256" cy="300" rx="120" ry="140" fill="#ffffff" stroke="#2962ff" stroke-width="6"/>
+  <!-- neck -->
+  <rect x="238" y="192" width="36" height="70" rx="18" fill="#ffffff" stroke="#2962ff" stroke-width="6"/>
+  <!-- head -->
+  <circle cx="256" cy="170" r="44" fill="#ffffff" stroke="#2962ff" stroke-width="6"/>
+  <!-- beak -->
+  <path d="M300 170c18 6 36 8 50 7-9 14-34 18-50 10z" fill="#ffa000" stroke="#cc7a00" stroke-width="4"/>
+  <!-- eyes -->
+  <circle cx="245" cy="165" r="6" fill="#0f172a"/>
+  <circle cx="270" cy="165" r="6" fill="#0f172a"/>
+  <!-- tie -->
+  <rect x="248" y="248" width="16" height="28" rx="2" fill="#2962ff"/>
+  <path d="M256 278l18 28-18 20-18-20z" fill="#1746c7"/>
+  <!-- briefcase -->
+  <rect x="322" y="316" width="62" height="40" rx="6" fill="#1746c7"/>
+  <rect x="338" y="304" width="30" height="12" rx="4" fill="#1746c7" stroke="#0b2d88" stroke-width="3"/>
+  <line x1="322" y1="336" x2="384" y2="336" stroke="#92b1ff" stroke-width="3"/>
+</svg>

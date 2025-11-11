@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ol' Goose mentor">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf8e1"/>
+      <stop offset="1" stop-color="#f6eec5"/>
+    </linearGradient>
+  </defs>
+  <!-- soft background circle -->
+  <circle cx="256" cy="256" r="230" fill="url(#g1)"/>
+  <!-- body -->
+  <ellipse cx="256" cy="300" rx="120" ry="140" fill="#fff9eb" stroke="#b0853a" stroke-width="6"/>
+  <!-- neck -->
+  <rect x="238" y="190" width="36" height="70" rx="18" fill="#fff9eb" stroke="#b0853a" stroke-width="6"/>
+  <!-- head -->
+  <circle cx="256" cy="170" r="44" fill="#fff9eb" stroke="#b0853a" stroke-width="6"/>
+  <!-- beak -->
+  <path d="M300 170c18 6 34 8 50 7-10 14-35 18-50 10z" fill="#f4a429" stroke="#b56916" stroke-width="4"/>
+  <!-- eye + glasses -->
+  <circle cx="245" cy="165" r="6" fill="#222"/>
+  <circle cx="270" cy="165" r="6" fill="#222"/>
+  <circle cx="245" cy="165" r="14" fill="none" stroke="#2e5d86" stroke-width="4"/>
+  <circle cx="270" cy="165" r="14" fill="none" stroke="#2e5d86" stroke-width="4"/>
+  <line x1="259" y1="165" x2="256" y2="165" stroke="#2e5d86" stroke-width="4"/>
+  <!-- cardigan -->
+  <path d="M156 330c30-20 70-30 100-30s70 10 100 30v46c0 8-6 14-14 14H170c-8 0-14-6-14-14v-46z" fill="#e8d4a8" stroke="#b0853a" stroke-width="6"/>
+  <line x1="256" y1="300" x2="256" y2="390" stroke="#b0853a" stroke-width="6"/>
+  <circle cx="256" cy="330" r="4" fill="#b0853a"/>
+  <circle cx="256" cy="352" r="4" fill="#b0853a"/>
+</svg>
