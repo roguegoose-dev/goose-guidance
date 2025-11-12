@@ -21,52 +21,35 @@ const __dirname = path.dirname(__filename);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* -----------------------------------------------------------
-   PERSONAS
------------------------------------------------------------ */
 const personaPrompts = {
   "ol-goose": `
 You are Ol' Goose — a grounded mentor from eastern Oklahoma.
-Speak with subtle Southern warmth — calm, confident, and wise.
-Keep sentences short and natural. Use gentle humor and grounded wisdom.
-Always end with a reflective question.
-`,
+Speak with subtle Southern warmth, calm confidence, and wisdom.
+Keep responses natural and reflective, ending with a question.`,
   "sergeant-goose": `
 You are Sergeant Goose — a disciplined, no-nonsense instructor.
-Speak directly and command attention. Be sharp and decisive.
-End every response with a challenge or action-based question.
-`,
+Be direct and commanding. End each response with a challenge or action.`,
   "go-getter-goose": `
 You are Go-Getter Goose — a high-energy executive coach.
-Be confident, fast-paced, and motivating.
-Turn excuses into plans and end with an action question.
-`,
+Be confident, upbeat, and motivating. End with an action question.`,
 };
 
-/* -----------------------------------------------------------
-   RISK ANALYZER
------------------------------------------------------------ */
 function analyzeRisk(message) {
-  const m = (message || "").toLowerCase();
+  const text = (message || "").toLowerCase();
   const risky = ["quit", "burn out", "burnout", "hate my job", "walk away"];
   const cautious = ["stable", "secure", "safe", "steady"];
-  if (risky.some((k) => m.includes(k))) return "high";
-  if (cautious.some((k) => m.includes(k))) return "low";
+  if (risky.some((k) => text.includes(k))) return "high";
+  if (cautious.some((k) => text.includes(k))) return "low";
   return "medium";
 }
 
-/* -----------------------------------------------------------
-   OCR ENDPOINT
------------------------------------------------------------ */
+// OCR endpoint
 app.post("/api/ocr", upload.single("image"), async (req, res) => {
   try {
     let imageBuffer;
     if (req.body.imageBase64) {
-      const base64Data = req.body.imageBase64.replace(
-        /^data:image\/\w+;base64,/,
-        ""
-      );
-      imageBuffer = Buffer.from(base64Data, "base64");
+      const base64 = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      imageBuffer = Buffer.from(base64, "base64");
     } else if (req.file) {
       imageBuffer = req.file.buffer;
     } else {
@@ -83,22 +66,20 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
   }
 });
 
-/* -----------------------------------------------------------
-   CHAT ENDPOINT
------------------------------------------------------------ */
+// Chat endpoint
 app.post("/api/chat", async (req, res) => {
   const { persona, message, history } = req.body;
 
   try {
-    const conversationSummary = (history || [])
-      .map((msg) => {
+    const summary = (history || [])
+      .map((m) => {
         const label =
-          msg.persona === "ol-goose"
+          m.persona === "ol-goose"
             ? "Ol' Goose"
-            : msg.persona === "sergeant-goose"
+            : m.persona === "sergeant-goose"
             ? "Sgt. Goose"
             : "Go-Getter Goose";
-        return `${label}: ${msg.message}`;
+        return `${label}: ${m.message}`;
       })
       .join("\n");
 
@@ -108,21 +89,21 @@ ${personaPrompts[persona]}
 
 User risk tolerance: ${risk}
 Conversation so far:
-${conversationSummary || "(no previous messages)"}
+${summary || "(no previous messages)"}
 
 Respond naturally as ${persona}.
-Keep it concise, helpful, and end with a guiding question.
+Keep it concise and end with a guiding question.
 User: "${message}"
 `;
 
-    const response = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.7,
       messages: [{ role: "user", content: personaPrompt }],
     });
 
-    const persona_voice = response.choices[0]?.message?.content?.trim();
-    if (!persona_voice) throw new Error("No text returned from OpenAI");
+    const personaVoice = completion.choices[0]?.message?.content?.trim();
+    if (!personaVoice) throw new Error("No text returned from OpenAI");
 
     const voiceModel = "gpt-4o-mini-tts";
     const voiceName =
@@ -135,99 +116,101 @@ User: "${message}"
     const speech = await openai.audio.speech.create({
       model: voiceModel,
       voice: voiceName,
-      input: persona_voice,
+      input: personaVoice,
     });
 
     const audioBuffer = Buffer.from(await speech.arrayBuffer());
-    const audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString(
-      "base64"
-    )}`;
+    const audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString("base64")}`;
 
-    res.json({ persona_voice, audio_url: audioBase64 });
+    res.json({ persona_voice: personaVoice, audio_url: audioBase64 });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({
       error: err.message,
       fallback_message:
-        "Well now, looks like I’m having trouble speaking up. Try again in a bit.",
+        "Looks like I’m having trouble responding right now. Try again soon.",
     });
   }
 });
 
-/* -----------------------------------------------------------
-   CAREERJET JOB SEARCH
------------------------------------------------------------ */
+// Unified Job Search: Adzuna + CareerJet
 app.get("/api/jobs", async (req, res) => {
   const { keywords = "", location = "Oklahoma" } = req.query;
-  const API_HOSTNAME = "search.api.careerjet.net";
-  const API_SEARCH_PATH = "/v4/query";
-  const API_KEY = process.env.VITE_CAREERJET_API_KEY;
 
-  const params = new URLSearchParams({
+  const adzAppId = process.env.VITE_ADZUNA_APP_ID;
+  const adzKey = process.env.VITE_ADZUNA_API_KEY;
+  const cjKey = process.env.VITE_CAREERJET_API_KEY;
+
+  const cjUrl = `https://search.api.careerjet.net/v4/query?${new URLSearchParams({
     locale_code: "en_US",
     keywords,
     location,
     user_ip: req.ip || "1.1.1.1",
     user_agent: req.get("user-agent") || "guidance-goose",
-  }).toString();
+  })}`;
 
-  const headers = new Headers();
-  headers.set(
-    "Authorization",
-    `Basic ${Buffer.from(`${API_KEY}:`).toString("base64")}`
-  );
-  headers.set("Content-Type", "application/json");
-  headers.set("Referer", "https://www.guidancegoose.com/");
+  const adzUrl = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${adzAppId}&app_key=${adzKey}&results_per_page=20&what=${encodeURIComponent(
+    keywords
+  )}&where=${encodeURIComponent(location)}`;
 
   try {
-    const response = await fetch(
-      `https://${API_HOSTNAME}${API_SEARCH_PATH}?${params}`,
-      { method: "GET", headers }
+    const [adzRes, cjRes] = await Promise.allSettled([
+      fetch(adzUrl),
+      fetch(cjUrl, {
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${cjKey}:`).toString("base64")}`,
+          "Content-Type": "application/json",
+          Referer: "https://www.guidancegoose.com/",
+        },
+      }),
+    ]);
+
+    const adzData =
+      adzRes.status === "fulfilled" && adzRes.value.ok
+        ? await adzRes.value.json()
+        : { results: [] };
+    const cjData =
+      cjRes.status === "fulfilled" && cjRes.value.ok
+        ? await cjRes.value.json()
+        : { jobs: [] };
+
+    const adzJobs = (adzData.results || []).map((j) => ({
+      title: j.title,
+      company: j.company?.display_name,
+      location: j.location?.display_name,
+      salary: j.salary_min ? `$${Math.round(j.salary_min)}+` : "",
+      date: j.created,
+      url: j.redirect_url,
+      source: "Adzuna",
+    }));
+
+    const cjJobs = (cjData.jobs || []).map((j) => ({
+      title: j.title,
+      company: j.company,
+      location: j.locations,
+      salary: j.salary,
+      date: j.date,
+      url: j.url,
+      source: "CareerJet",
+    }));
+
+    const jobs = [...adzJobs, ...cjJobs].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
     );
-    if (!response.ok) throw new Error(`CareerJet API error ${response.status}`);
-    const data = await response.json();
-    res.json(data);
+
+    res.json({ jobs });
   } catch (err) {
-    console.error("CareerJet error:", err);
+    console.error("Job fetch error:", err);
     res.status(500).json({ error: "Failed to load jobs." });
   }
 });
 
-/* -----------------------------------------------------------
-   ADZUNA JOB SEARCH
------------------------------------------------------------ */
-app.get("/api/adzuna", async (req, res) => {
-  const { keywords = "", location = "Oklahoma" } = req.query;
-
-  const appId = process.env.VITE_ADZUNA_APP_ID;
-  const apiKey = process.env.VITE_ADZUNA_API_KEY;
-
-  const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${apiKey}&results_per_page=20&what=${encodeURIComponent(
-    keywords
-  )}&where=${encodeURIComponent(location)}&content-type=application/json`;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Adzuna API error ${response.status}`);
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    console.error("Adzuna error:", err);
-    res.status(500).json({ error: "Failed to load Adzuna jobs." });
-  }
-});
-
-/* -----------------------------------------------------------
-   STATIC FRONTEND
------------------------------------------------------------ */
+// Static frontend
 app.use(express.static(path.join(__dirname, "dist")));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-/* -----------------------------------------------------------
-   START SERVER
------------------------------------------------------------ */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Goose Guidance running on http://localhost:${PORT}`);
