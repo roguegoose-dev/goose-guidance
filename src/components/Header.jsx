@@ -26,9 +26,9 @@ export default function Header() {
             About
           </Link>
 
-          {/* External blog (same tab). If you prefer new tab, add target/_blank + rel */}
+          {/* BLOG -> temporary staging URL */}
           <a
-            href="https://blog.guidancegoose.com"
+            href="https://guidancegoose.wpcomstaging.com/"
             className="hover:underline"
             // target="_blank"
             // rel="noopener noreferrer"
@@ -36,7 +36,7 @@ export default function Header() {
             Blog
           </a>
 
-          {/* New Jobs page */}
+          {/* Jobs page */}
           <Link to="/jobs" className={`hover:underline ${isActive("/jobs")}`}>
             Jobs
           </Link>
