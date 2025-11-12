@@ -182,7 +182,7 @@ app.get("/api/jobs", async (req, res) => {
     `Basic ${Buffer.from(`${API_KEY}:`).toString("base64")}`
   );
   headers.set("Content-Type", "application/json");
-  headers.set("Referer", "https://www.guidancegoose.com/jobs");
+  headers.set("Referer", "https://www.guidancegoose.com/");
 
   try {
     const response = await fetch(
