@@ -5,19 +5,18 @@ import Header from "../components/Header";
 export default function JobBoard() {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("Oklahoma");
+  const [category, setCategory] = useState("");
+  const [source, setSource] = useState("both");
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [category, setCategory] = useState("");
-
-  // ✅ Organized categories + subcategories (for display)
   const groupedCategories = {
     Technology: [
       { label: "Engineering", value: "engineering-jobs" },
-      { label: "Helpdesk & Support", value: "customer-services-jobs" },
+      { label: "Helpdesk / Support", value: "customer-services-jobs" },
       { label: "Cybersecurity", value: "it-jobs" },
-      { label: "Data & Analytics", value: "it-jobs" },
+      { label: "Data / Analytics", value: "it-jobs" },
     ],
     "Public Service": [
       { label: "Firefighter", value: "security-jobs" },
@@ -41,34 +40,36 @@ export default function JobBoard() {
       { label: "Mechanic / Technician", value: "engineering-jobs" },
       { label: "Electrical / HVAC / Plumbing", value: "engineering-jobs" },
     ],
-    Education: [
-      { label: "Teacher / Instructor", value: "teaching-jobs" },
-      { label: "Trainer / Corporate Learning", value: "teaching-jobs" },
-    ],
     Creative: [
       { label: "Design / Graphics", value: "creative-design-jobs" },
       { label: "Marketing / Content", value: "advertising-pr-jobs" },
       { label: "Writing / Media", value: "arts-jobs" },
     ],
+    Education: [
+      { label: "Teacher / Instructor", value: "teaching-jobs" },
+      { label: "Trainer / Corporate Learning", value: "teaching-jobs" },
+    ],
   };
 
-  // ✅ Fetch jobs (Adzuna + CareerJet unified)
   const fetchJobs = async () => {
     setLoading(true);
     setError(null);
+
     try {
       const params = new URLSearchParams({
         keywords: keyword,
         location,
         category,
+        source,
       });
 
-      const res = await fetch(`/api/jobs?${params}`);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
+      const response = await fetch(`/api/jobs?${params}`);
+      if (!response.ok) throw new Error(`Server error ${response.status}`);
+      const data = await response.json();
+
       setJobs(data.jobs || []);
     } catch (err) {
-      console.error("Job fetch failed:", err);
+      console.error("❌ Job fetch failed:", err);
       setError("Failed to load jobs. Please try again later.");
     } finally {
       setLoading(false);
@@ -86,7 +87,7 @@ export default function JobBoard() {
       <div className="max-w-6xl mx-auto py-10 px-4 text-black relative overflow-visible">
         <h1 className="text-3xl font-bold mb-6 text-center">Job Board</h1>
 
-        {/* 🔍 Search bar */}
+        {/* 🔍 Filters */}
         <form
           onSubmit={handleSearch}
           className="flex flex-col md:flex-row gap-4 mb-8 justify-center relative overflow-visible"
@@ -107,8 +108,8 @@ export default function JobBoard() {
             className="border rounded-md px-4 py-2 w-full md:w-1/4 focus:ring-2 focus:ring-blue-600"
           />
 
-          {/* ✅ Single grouped dropdown */}
-          <div className="relative z-50 overflow-visible">
+          {/* Category Dropdown */}
+          <div className="relative z-50 overflow-visible w-full md:w-1/4">
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -127,6 +128,19 @@ export default function JobBoard() {
             </select>
           </div>
 
+          {/* Source Filter */}
+          <div className="relative z-50 overflow-visible w-full md:w-1/4">
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="border rounded-md px-3 py-2 text-sm text-gray-700 w-full focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="both">All Sources</option>
+              <option value="adzuna">Adzuna Only</option>
+              <option value="careerjet">CareerJet Only</option>
+            </select>
+          </div>
+
           <button
             type="submit"
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
@@ -135,11 +149,13 @@ export default function JobBoard() {
           </button>
         </form>
 
-        {/* 🌀 Loading & Error */}
-        {loading && <p className="text-center text-gray-600">Loading jobs...</p>}
+        {/* 🌀 Loading / Error */}
+        {loading && (
+          <p className="text-center text-gray-600">Loading jobs...</p>
+        )}
         {error && <p className="text-center text-red-500">{error}</p>}
 
-        {/* 📋 Job Results */}
+        {/* 📋 Results */}
         <div className="grid gap-4">
           {jobs.slice(0, 20).map((job, i) => (
             <a

@@ -56,7 +56,7 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
   try {
     let imageBuffer;
     if (req.body.imageBase64) {
-      const base64 = req.body.imageBase64.replace(/^data:image\/\\w+;base64,/, "");
+      const base64 = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
       imageBuffer = Buffer.from(base64, "base64");
     } else if (req.file) {
       imageBuffer = req.file.buffer;
@@ -145,6 +145,12 @@ User: "${message}"
 
 /* -----------------------------
    UNIFIED JOB SEARCH (Adzuna + CareerJet)
+   Query params:
+     - keywords
+     - location
+     - category       (Adzuna category code; omit if empty)
+     - sort           (friendly: newest | salary | relevance)
+     - source         (adzuna | careerjet | both | all)
 ----------------------------- */
 app.get("/api/jobs", async (req, res) => {
   const {
@@ -159,65 +165,118 @@ app.get("/api/jobs", async (req, res) => {
   const adzKey = process.env.VITE_ADZUNA_API_KEY;
   const cjKey = process.env.VITE_CAREERJET_API_KEY;
 
-  const cjUrl = `https://search.api.careerjet.net/v4/query?${new URLSearchParams({
+  // Normalize/accept both "both" and "all"
+  const src = (source || "all").toLowerCase();
+  const wantAdzuna = src === "adzuna" || src === "both" || src === "all";
+  const wantCareerJet = src === "careerjet" || src === "both" || src === "all";
+
+  // Map friendly sort to Adzuna's sort_by values
+  // Adzuna supports: date | salary | relevance (relevancy)
+  const adzunaSortMap = {
+    newest: "date",
+    date: "date",
+    salary: "salary",
+    relevance: "relevance",
+    relevancy: "relevance",
+  };
+  const sortBy = adzunaSortMap[String(sort).toLowerCase()] || "";
+
+  // Build Adzuna query
+  const adzParams = new URLSearchParams({
+    app_id: adzAppId || "",
+    app_key: adzKey || "",
+    results_per_page: "20",
+    what: keywords,
+    where: location,
+  });
+  if (category) adzParams.set("category", category);
+  if (sortBy) adzParams.set("sort_by", sortBy);
+
+  const adzUrl = `https://api.adzuna.com/v1/api/jobs/us/search/1?${adzParams.toString()}`;
+
+  // Build CareerJet query (they ignore category; we pass keywords/location)
+  const clientIp =
+    (req.headers["x-forwarded-for"]?.toString().split(",")[0] || "").trim() ||
+    req.ip ||
+    "1.1.1.1";
+
+  const cjParams = new URLSearchParams({
     locale_code: "en_US",
     keywords,
     location,
-    user_ip: req.ip || "1.1.1.1",
+    user_ip: clientIp,
     user_agent: req.get("user-agent") || "guidance-goose",
-  })}`;
-
-  const adzUrl = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${adzAppId}&app_key=${adzKey}&results_per_page=20&what=${encodeURIComponent(
-    keywords
-  )}&where=${encodeURIComponent(location)}&category=${encodeURIComponent(
-    category
-  )}&sort_by=${encodeURIComponent(sort)}`;
+  });
+  const cjUrl = `https://search.api.careerjet.net/v4/query?${cjParams.toString()}`;
 
   try {
-    let adzJobs = [],
-      cjJobs = [];
-
-    if (source === "adzuna" || source === "all") {
-      const adzRes = await fetch(adzUrl);
-      if (adzRes.ok) {
-        const data = await adzRes.json();
-        adzJobs = (data.results || []).map((j) => ({
-          title: j.title,
-          company: j.company?.display_name,
-          location: j.location?.display_name,
-          salary: j.salary_min ? `$${Math.round(j.salary_min)}+` : "",
-          date: j.created,
-          url: j.redirect_url,
-          source: "Adzuna",
-        }));
-      }
+    // Fire both in parallel (only if requested)
+    const tasks = [];
+    if (wantAdzuna) {
+      tasks.push(
+        fetch(adzUrl).then(async (r) => {
+          if (!r.ok) throw new Error(`Adzuna ${r.status}`);
+          return r.json();
+        })
+      );
+    } else {
+      tasks.push(Promise.resolve({ results: [] }));
     }
 
-    if (source === "careerjet" || source === "all") {
-      const cjRes = await fetch(cjUrl, {
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${cjKey}:`).toString("base64")}`,
-          "Content-Type": "application/json",
-          Referer: "https://www.guidancegoose.com/",
-        },
-      });
-      if (cjRes.ok) {
-        const data = await cjRes.json();
-        cjJobs = (data.jobs || []).map((j) => ({
-          title: j.title,
-          company: j.company,
-          location: j.locations,
-          salary: j.salary,
-          date: j.date,
-          url: j.url,
-          source: "CareerJet",
-        }));
-      }
+    if (wantCareerJet) {
+      tasks.push(
+        fetch(cjUrl, {
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${cjKey || ""}:`).toString("base64")}`,
+            "Content-Type": "application/json",
+            Referer: "https://www.guidancegoose.com/",
+          },
+        }).then(async (r) => {
+          if (!r.ok) throw new Error(`CareerJet ${r.status}`);
+          return r.json();
+        })
+      );
+    } else {
+      tasks.push(Promise.resolve({ jobs: [] }));
     }
 
-    const jobs = [...adzJobs, ...cjJobs].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
+    const [adzData, cjData] = await Promise.allSettled(tasks).then((settled) =>
+      settled.map((s, i) => {
+        if (s.status === "fulfilled") return s.value;
+        console.error(i === 0 ? "Adzuna error:" : "CareerJet error:", s.reason);
+        return i === 0 ? { results: [] } : { jobs: [] };
+      })
     );
+
+    const adzJobs = (adzData.results || []).map((j) => ({
+      title: j.title,
+      company: j.company?.display_name || "",
+      location: j.location?.display_name || "",
+      salary: j.salary_min ? `$${Math.round(j.salary_min)}+` : "",
+      date: j.created,
+      url: j.redirect_url,
+      source: "Adzuna",
+    }));
+
+    const cjJobs = (cjData.jobs || []).map((j) => ({
+      title: j.title,
+      company: j.company || "",
+      location: j.locations || "",
+      salary: j.salary || "",
+      date: j.date,
+      url: j.url,
+      source: "CareerJet",
+    }));
+
+    const jobs =
+      src === "adzuna"
+        ? adzJobs
+        : src === "careerjet"
+        ? cjJobs
+        : [...adzJobs, ...cjJobs].sort(
+            (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
+          );
+
     res.json({ jobs });
   } catch (err) {
     console.error("Job fetch error:", err);
