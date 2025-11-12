@@ -12,6 +12,7 @@ export default function Header() {
         <Link
           to="/"
           className="text-2xl font-bold tracking-wide hover:text-blue-100 transition"
+          aria-label="Guidance Goose Home"
         >
           🪶 Guidance Goose
         </Link>
@@ -26,27 +27,26 @@ export default function Header() {
             About
           </Link>
 
-          {/* BLOG -> temporary staging URL */}
-          <a
-            href="https://guidancegoose.wpcomstaging.com/"
-            className="hover:underline"
-            // target="_blank"
-            // rel="noopener noreferrer"
+          <Link
+            to="/whitepages"
+            className={`hover:underline ${isActive("/whitepages")}`}
           >
-            Blog
-          </a>
+            White Pages
+          </Link>
 
-          {/* Jobs page */}
           <Link to="/jobs" className={`hover:underline ${isActive("/jobs")}`}>
             Jobs
           </Link>
 
-          <Link
-            to="/privacy-policy"
-            className={`hover:underline ${isActive("/privacy-policy")}`}
+          {/* Blog on WordPress (staging URL for now) */}
+          <a
+            href="https://guidancegoose.wpcomstaging.com/"
+            className="hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            Privacy
-          </Link>
+            Blog
+          </a>
         </nav>
       </div>
     </header>

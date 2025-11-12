@@ -46,7 +46,7 @@ export default function App() {
     {
       id: "go-getter-goose",
       name: "Go-Getter Goose",
-      desc: "The motivator. High energy, all gas no brakes.",
+      desc: "The motivator. High energy and action driven.",
       img: "/images/go-getter-goose.svg",
       cardBg: "bg-blue-50 border-blue-300",
       ring: "ring-blue-400",
@@ -181,9 +181,9 @@ export default function App() {
       <Header />
 
       <main className="flex-1 flex flex-col items-center p-6">
-        {/* Top bar */}
-        <div className="w-full flex justify-between items-center mb-4">
-          <h1 className="text-4xl font-bold text-blue-700">Choose Your Goose</h1>
+        {/* Centered title and sign in/out */}
+        <div className="flex flex-col items-center mb-8 text-center">
+          <h1 className="text-4xl font-bold text-blue-700 mb-2">Choose Your Goose</h1>
           {user ? (
             <button
               onClick={handleLogout}
@@ -202,7 +202,7 @@ export default function App() {
         </div>
 
         {/* Persona cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mb-8">
           {geese.map((g) => (
             <div
               key={g.id}
@@ -218,6 +218,14 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* More Geese button above chat */}
+        <button
+          onClick={() => navigate("/more-geese")}
+          className="mb-6 w-full max-w-xl bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-3 rounded-lg border border-blue-300 transition"
+        >
+          Meet More Geese
+        </button>
 
         {/* Input area */}
         <div className="flex w-full max-w-xl gap-2 items-start">
@@ -289,13 +297,6 @@ export default function App() {
             </div>
           ))}
         </div>
-
-        <button
-          onClick={() => navigate("/more-geese")}
-          className="mt-8 w-full max-w-xl bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-3 rounded-lg border border-blue-300 transition"
-        >
-          Meet More Geese
-        </button>
       </main>
 
       <Footer />

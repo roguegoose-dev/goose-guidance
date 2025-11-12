@@ -11,10 +11,15 @@ export default function Footer() {
             <a href="/terms" className="hover:underline">
               Terms of Service
             </a>
-            <a href="/white-pages" className="hover:underline">
+            <a href="/whitepages" className="hover:underline">
               White Pages
             </a>
-            <a href="/blog" className="hover:underline">
+            <a
+              href="https://guidancegoose.wpcomstaging.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
               Blog
             </a>
             <a href="/about" className="hover:underline">
@@ -23,11 +28,8 @@ export default function Footer() {
           </nav>
 
           <div className="text-center text-sm text-gray-600">
-            <a
-              href="mailto:marvin@guidancegoose.com"
-              className="hover:underline"
-            >
-              contact@guidancegoose.com
+            <a href="mailto:marvin@guidancegoose.com" className="hover:underline">
+              marvin@guidancegoose.com
             </a>
           </div>
         </div>
@@ -40,10 +42,12 @@ export default function Footer() {
           <p className="text-xs text-gray-500">
             Guidance Goose — Built by Goose Solutions
           </p>
-
-          {/* Optional small print or version tag */}
           <p className="text-xs text-gray-400">
-            Updated {new Date().toLocaleDateString(undefined, { year: "numeric", month: "long" })}
+            Updated{" "}
+            {new Date().toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "long",
+            })}
           </p>
         </div>
       </div>
