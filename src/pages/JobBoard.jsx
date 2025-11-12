@@ -1,4 +1,3 @@
-// src/pages/JobBoard.jsx
 import { useState } from "react";
 
 export default function JobBoard() {
@@ -8,41 +7,28 @@ export default function JobBoard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const API_HOSTNAME = "search.api.careerjet.net";
-  const API_SEARCH_PATH = "/v4/query";
-  const API_KEY = import.meta.env.VITE_CAREERJET_API_KEY;
-
+  // Fetch jobs from your backend proxy (server.js handles CareerJet)
   const fetchJobs = async (keywords = keyword, loc = location) => {
     setLoading(true);
     setError(null);
+
     try {
-      const PARAMS = {
-        locale_code: "en_US",
-        keywords,
-        location: loc,
-        user_ip: "1.1.1.1", // dummy fallback; server can replace later
-        user_agent: navigator.userAgent,
-      };
-
-      const query = new URLSearchParams(PARAMS).toString();
-
-      const headers = new Headers();
-      headers.set("Authorization", `Basic ${btoa(`${API_KEY}:`)}`);
-      headers.set("Content-Type", "application/json");
-      headers.set("Referer", "https://www.guidancegoose.com/jobs");
-
       const response = await fetch(
-        `https://${API_HOSTNAME}${API_SEARCH_PATH}?${query}`,
-        { method: "GET", headers }
+        `/api/jobs?keywords=${encodeURIComponent(keywords)}&location=${encodeURIComponent(loc)}`
       );
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(`Server error ${response.status}`);
+
       const data = await response.json();
 
-      setJobs(data.jobs || []);
+      if (data?.jobs?.length > 0) {
+        setJobs(data.jobs);
+      } else {
+        setJobs([]);
+      }
     } catch (err) {
-      console.error(err);
-      setError("Failed to load jobs");
+      console.error("❌ Job fetch failed:", err);
+      setError("Failed to load jobs. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -57,6 +43,7 @@ export default function JobBoard() {
     <div className="max-w-5xl mx-auto py-10 px-4 text-black">
       <h1 className="text-3xl font-bold mb-6 text-center">Job Board</h1>
 
+      {/* Search Bar */}
       <form
         onSubmit={handleSearch}
         className="flex flex-col md:flex-row gap-4 mb-8 justify-center"
@@ -66,26 +53,28 @@ export default function JobBoard() {
           placeholder="Job title, keywords or company"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          className="border rounded-md px-4 py-2 w-full md:w-1/2"
+          className="border rounded-md px-4 py-2 w-full md:w-1/2 focus:outline-none focus:ring-2 focus:ring-blue-600"
         />
         <input
           type="text"
           placeholder="City or state"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          className="border rounded-md px-4 py-2 w-full md:w-1/4"
+          className="border rounded-md px-4 py-2 w-full md:w-1/4 focus:outline-none focus:ring-2 focus:ring-blue-600"
         />
         <button
           type="submit"
-          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
         >
           Search
         </button>
       </form>
 
-      {loading && <p className="text-center">Loading jobs...</p>}
+      {/* Loading / Error States */}
+      {loading && <p className="text-center text-gray-600">Loading jobs...</p>}
       {error && <p className="text-center text-red-500">{error}</p>}
 
+      {/* Job Listings */}
       <div className="grid gap-4">
         {jobs.slice(0, 10).map((job, i) => (
           <a
@@ -93,20 +82,38 @@ export default function JobBoard() {
             href={job.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block border rounded-lg p-4 hover:shadow-md bg-white transition"
+            className="block border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition"
           >
-            <h2 className="text-lg font-semibold">{job.title}</h2>
-            <p className="text-sm text-gray-700">{job.company}</p>
-            <p className="text-sm text-gray-500">{job.locations}</p>
+            <h2 className="text-lg font-semibold text-blue-700 hover:underline">
+              {job.title}
+            </h2>
+            {job.company && (
+              <p className="text-sm text-gray-800 font-medium mt-1">
+                {job.company}
+              </p>
+            )}
+            {job.locations && (
+              <p className="text-sm text-gray-600">{job.locations}</p>
+            )}
             {job.salary && (
-              <p className="text-sm text-green-600 font-medium">{job.salary}</p>
+              <p className="text-sm text-green-600 font-medium">
+                💵 {job.salary}
+              </p>
+            )}
+            {job.date && (
+              <p className="text-xs text-gray-500 mt-1">
+                Posted: {new Date(job.date).toLocaleDateString()}
+              </p>
             )}
           </a>
         ))}
       </div>
 
+      {/* Empty State */}
       {!loading && jobs.length === 0 && !error && (
-        <p className="text-center text-gray-500 mt-6">No jobs found.</p>
+        <p className="text-center text-gray-500 mt-8">
+          No jobs found. Try adjusting your search.
+        </p>
       )}
     </div>
   );

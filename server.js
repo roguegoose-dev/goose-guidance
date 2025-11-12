@@ -7,17 +7,15 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import Tesseract from "tesseract.js";
+import fetch from "node-fetch";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json({ limit: "20mb" })); // bump limit for base64 uploads
+app.use(bodyParser.json({ limit: "20mb" }));
 
-// Handle multipart/form uploads
 const upload = multer({ storage: multer.memoryStorage() });
-
-// Resolve __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -25,47 +23,38 @@ const __dirname = path.dirname(__filename);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* -----------------------------------------------------------
-   PERSONA DEFINITIONS
+   PERSONAS
 ----------------------------------------------------------- */
 const personaPrompts = {
   "ol-goose": `
 You are Ol' Goose — a grounded mentor from eastern Oklahoma.
-Speak with a subtle Southern warmth — calm, confident, and full of life experience.
-Sound like an older man who’s lived a little: slow cadence, clear tone, just a touch of twang.
-Keep sentences short and natural, like friendly porch talk.
-Use gentle humor and grounded wisdom, not slang or exaggeration.
-Always end with one guiding question that helps the user reflect.
-Example tone: “Well now, that’s a fair thought. Let’s figure what makes sense before you jump.”
+Speak with subtle Southern warmth — calm, confident, and wise.
+Keep sentences short and natural. Use gentle humor and grounded wisdom.
+Always end with a reflective question.
 `,
 
   "sergeant-goose": `
-You are Sergeant Goose — a disciplined instructor cut from the same cloth as Gunnery Sergeant Hartman.
-Your tone is clipped, direct, and commanding — every sentence matters.
-Push the user to face truth and act with discipline.
-Avoid filler words and long paragraphs. Stay sharp, concise, and focused.
-Always end with a decisive question or challenge.
-Example tone: “You’re talking about walking away from stability for a gamble. That’s not courage yet — it’s impulse. What’s your plan to earn the right to make that leap?”
+You are Sergeant Goose — a disciplined, no-nonsense instructor.
+Speak directly and command attention. Be sharp and decisive.
+End every response with a challenge or action-based question.
 `,
 
   "go-getter-goose": `
-You are Go-Getter Goose — an upbeat business-minded motivator.
-Speak like a sharp executive coach or consultant.
-Your tone is quick, confident, and focused on forward motion.
-Turn problems into opportunities and excuses into plans.
-Always end with a motivating, action-oriented question.
-Example tone: “Alright — if you’re ready to pivot, then pivot with purpose. What timeline makes this move realistic instead of reckless?”
-`
+You are Go-Getter Goose — a high-energy executive coach.
+Be confident, fast-paced, and motivating.
+Turn excuses into plans and end with an action question.
+`,
 };
 
 /* -----------------------------------------------------------
-   BASIC RISK ANALYZER
+   RISK ANALYZER
 ----------------------------------------------------------- */
 function analyzeRisk(message) {
   const m = (message || "").toLowerCase();
-  const risky = ["quit", "burn out", "burnout", "hate my job", "start over", "change everything", "blow it up", "walk away"];
-  const cautious = ["stable", "secure", "steady", "safe", "risk averse", "risk-averse"];
-  if (risky.some(k => m.includes(k))) return "high";
-  if (cautious.some(k => m.includes(k))) return "low";
+  const risky = ["quit", "burn out", "burnout", "hate my job", "walk away"];
+  const cautious = ["stable", "secure", "safe", "steady"];
+  if (risky.some((k) => m.includes(k))) return "high";
+  if (cautious.some((k) => m.includes(k))) return "low";
   return "medium";
 }
 
@@ -75,10 +64,11 @@ function analyzeRisk(message) {
 app.post("/api/ocr", upload.single("image"), async (req, res) => {
   try {
     let imageBuffer;
-
-    // handle base64 or uploaded file
     if (req.body.imageBase64) {
-      const base64Data = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const base64Data = req.body.imageBase64.replace(
+        /^data:image\/\w+;base64,/,
+        ""
+      );
       imageBuffer = Buffer.from(base64Data, "base64");
     } else if (req.file) {
       imageBuffer = req.file.buffer;
@@ -87,9 +77,9 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
     }
 
     console.log("🧠 Running OCR on uploaded image...");
-    const { data: { text } } = await Tesseract.recognize(imageBuffer, "eng");
-    console.log("✅ OCR text extracted:", text.trim().slice(0, 120));
-
+    const {
+      data: { text },
+    } = await Tesseract.recognize(imageBuffer, "eng");
     res.json({ extractedText: text.trim() });
   } catch (err) {
     console.error("❌ OCR error:", err);
@@ -98,7 +88,7 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
 });
 
 /* -----------------------------------------------------------
-   MAIN CHAT ENDPOINT
+   CHAT ENDPOINT
 ----------------------------------------------------------- */
 app.post("/api/chat", async (req, res) => {
   const { persona, message, history } = req.body;
@@ -121,17 +111,14 @@ app.post("/api/chat", async (req, res) => {
     const personaPrompt = `
 ${personaPrompts[persona]}
 
-User risk tolerance (rough estimate): ${risk}
-
+User risk tolerance: ${risk}
 Conversation so far:
 ${conversationSummary || "(no previous messages)"}
 
-Respond naturally as ${persona}, in your own tone.
-Keep it short, helpful, and always end with a guiding or reflective question.
+Respond naturally as ${persona}.
+Keep it concise, helpful, and end with a guiding question.
 User: "${message}"
 `;
-
-    console.log("📨 Sending prompt to OpenAI...");
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -140,8 +127,6 @@ User: "${message}"
     });
 
     const persona_voice = response.choices[0]?.message?.content?.trim();
-    console.log("✅ OpenAI replied:", persona_voice?.slice(0, 120) || "(no text)");
-
     if (!persona_voice) throw new Error("No text returned from OpenAI");
 
     const voiceModel = "gpt-4o-mini-tts";
@@ -152,7 +137,6 @@ User: "${message}"
         ? "verse"
         : "fable";
 
-    console.log(`🎤 Generating voice with ${voiceName}`);
     const speech = await openai.audio.speech.create({
       model: voiceModel,
       voice: voiceName,
@@ -160,15 +144,59 @@ User: "${message}"
     });
 
     const audioBuffer = Buffer.from(await speech.arrayBuffer());
-    const audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString("base64")}`;
+    const audioBase64 = `data:audio/mpeg;base64,${audioBuffer.toString(
+      "base64"
+    )}`;
 
     res.json({ persona_voice, audio_url: audioBase64 });
   } catch (err) {
     console.error("❌ Chat error:", err);
     res.status(500).json({
       error: err.message,
-      fallback_message: "Well now, looks like I’m having trouble speaking up. Try again in a bit.",
+      fallback_message:
+        "Well now, looks like I’m having trouble speaking up. Try again in a bit.",
     });
+  }
+});
+
+/* -----------------------------------------------------------
+   CAREERJET JOB SEARCH
+----------------------------------------------------------- */
+app.get("/api/jobs", async (req, res) => {
+  const { keywords = "", location = "Oklahoma" } = req.query;
+  const API_HOSTNAME = "search.api.careerjet.net";
+  const API_SEARCH_PATH = "/v4/query";
+  const API_KEY = process.env.CAREERJET_API_KEY;
+
+  const params = new URLSearchParams({
+    locale_code: "en_US",
+    keywords,
+    location,
+    user_ip: req.ip || "1.1.1.1",
+    user_agent: req.get("user-agent") || "guidance-goose",
+  }).toString();
+
+  const headers = new Headers();
+  headers.set(
+    "Authorization",
+    `Basic ${Buffer.from(`${API_KEY}:`).toString("base64")}`
+  );
+  headers.set("Content-Type", "application/json");
+  headers.set("Referer", "https://www.guidancegoose.com/jobs");
+
+  try {
+    const response = await fetch(
+      `https://${API_HOSTNAME}${API_SEARCH_PATH}?${params}`,
+      { method: "GET", headers }
+    );
+
+    if (!response.ok) throw new Error(`CareerJet API error ${response.status}`);
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("❌ CareerJet error:", err);
+    res.status(500).json({ error: "Failed to load jobs." });
   }
 });
 
@@ -184,6 +212,6 @@ app.get("*", (req, res) => {
    START SERVER
 ----------------------------------------------------------- */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Goose Guidance server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () =>
+  console.log(`🚀 Goose Guidance running on http://localhost:${PORT}`)
+);
