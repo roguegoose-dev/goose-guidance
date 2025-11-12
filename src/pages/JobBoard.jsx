@@ -9,79 +9,63 @@ export default function JobBoard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 🔹 Category and Subcategory state
-  const [mainCategory, setMainCategory] = useState("");
-  const [subCategory, setSubCategory] = useState("");
+  const [category, setCategory] = useState("");
 
-  const categories = {
+  // ✅ Organized categories + subcategories (for display)
+  const groupedCategories = {
     Technology: [
-      { label: "All Technology", value: "it-jobs" },
       { label: "Engineering", value: "engineering-jobs" },
       { label: "Helpdesk & Support", value: "customer-services-jobs" },
       { label: "Cybersecurity", value: "it-jobs" },
       { label: "Data & Analytics", value: "it-jobs" },
     ],
-    PublicService: [
-      { label: "All Public Service", value: "public-sector-jobs" },
+    "Public Service": [
       { label: "Firefighter", value: "security-jobs" },
       { label: "Police / Law Enforcement", value: "security-jobs" },
       { label: "Military / Defense", value: "security-jobs" },
       { label: "Emergency Medical", value: "healthcare-nursing-jobs" },
     ],
     Healthcare: [
-      { label: "All Healthcare", value: "healthcare-nursing-jobs" },
       { label: "Nursing", value: "healthcare-nursing-jobs" },
       { label: "Allied Health", value: "healthcare-nursing-jobs" },
       { label: "Mental Health", value: "healthcare-nursing-jobs" },
     ],
     Business: [
-      { label: "All Business", value: "accounting-finance-jobs" },
       { label: "Finance & Accounting", value: "accounting-finance-jobs" },
       { label: "Project Management", value: "consultancy-jobs" },
       { label: "Human Resources", value: "hr-jobs" },
       { label: "Administrative", value: "admin-jobs" },
     ],
-    SkilledTrades: [
-      { label: "All Trades", value: "construction-trades-jobs" },
+    Trades: [
       { label: "Construction", value: "construction-trades-jobs" },
       { label: "Mechanic / Technician", value: "engineering-jobs" },
       { label: "Electrical / HVAC / Plumbing", value: "engineering-jobs" },
     ],
-    Creative: [
-      { label: "All Creative", value: "creative-design-jobs" },
-      { label: "Design / Graphics", value: "creative-design-jobs" },
-      { label: "Writing / Media", value: "arts-jobs" },
-      { label: "Marketing / Content", value: "advertising-pr-jobs" },
-    ],
-    Logistics: [
-      { label: "All Logistics", value: "logistics-warehouse-jobs" },
-      { label: "Driver / CDL", value: "logistics-warehouse-jobs" },
-      { label: "Warehouse / Operations", value: "logistics-warehouse-jobs" },
-    ],
     Education: [
-      { label: "All Education", value: "teaching-jobs" },
       { label: "Teacher / Instructor", value: "teaching-jobs" },
       { label: "Trainer / Corporate Learning", value: "teaching-jobs" },
     ],
+    Creative: [
+      { label: "Design / Graphics", value: "creative-design-jobs" },
+      { label: "Marketing / Content", value: "advertising-pr-jobs" },
+      { label: "Writing / Media", value: "arts-jobs" },
+    ],
   };
 
+  // ✅ Fetch jobs (Adzuna + CareerJet unified)
   const fetchJobs = async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const categoryValue =
-        subCategory || (mainCategory ? categories[mainCategory][0].value : "");
-
       const params = new URLSearchParams({
         keywords: keyword,
         location,
-        category: categoryValue,
+        category,
       });
 
-      const response = await fetch(`/api/jobs?${params}`);
-      if (!response.ok) throw new Error(`Server error ${response.status}`);
-      const data = await response.json();
+      const res = await fetch(`/api/jobs?${params}`);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const data = await res.json();
       setJobs(data.jobs || []);
     } catch (err) {
       console.error("Job fetch failed:", err);
@@ -99,20 +83,20 @@ export default function JobBoard() {
   return (
     <>
       <Header />
-      <div className="max-w-6xl mx-auto py-10 px-4 text-black overflow-visible">
+      <div className="max-w-6xl mx-auto py-10 px-4 text-black relative overflow-visible">
         <h1 className="text-3xl font-bold mb-6 text-center">Job Board</h1>
 
-        {/* 🔍 Search Bar and Filters */}
+        {/* 🔍 Search bar */}
         <form
           onSubmit={handleSearch}
-          className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8 relative overflow-visible"
+          className="flex flex-col md:flex-row gap-4 mb-8 justify-center relative overflow-visible"
         >
           <input
             type="text"
             placeholder="Keyword or company"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="border rounded-md px-4 py-2 w-full focus:ring-2 focus:ring-blue-600"
+            className="border rounded-md px-4 py-2 w-full md:w-1/3 focus:ring-2 focus:ring-blue-600"
           />
 
           <input
@@ -120,45 +104,26 @@ export default function JobBoard() {
             placeholder="City or state"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="border rounded-md px-4 py-2 w-full focus:ring-2 focus:ring-blue-600"
+            className="border rounded-md px-4 py-2 w-full md:w-1/4 focus:ring-2 focus:ring-blue-600"
           />
 
-          <div className="relative overflow-visible">
+          {/* ✅ Single grouped dropdown */}
+          <div className="relative z-50 overflow-visible">
             <select
-              value={mainCategory}
-              onChange={(e) => {
-                setMainCategory(e.target.value);
-                setSubCategory("");
-              }}
-              className="border rounded-md px-3 py-2 text-sm text-gray-700 relative z-10 w-full focus:ring-2 focus:ring-blue-600"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="border rounded-md px-3 py-2 text-sm text-gray-700 w-full focus:ring-2 focus:ring-blue-600"
             >
               <option value="">All Categories</option>
-              {Object.keys(categories).map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat.replace(/([A-Z])/g, " $1").trim()}
-                </option>
+              {Object.entries(groupedCategories).map(([group, subs]) => (
+                <optgroup key={group} label={group}>
+                  {subs.map((sub) => (
+                    <option key={sub.value} value={sub.value}>
+                      {sub.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
-            </select>
-          </div>
-
-          <div className="relative overflow-visible">
-            <select
-              value={subCategory}
-              onChange={(e) => setSubCategory(e.target.value)}
-              disabled={!mainCategory}
-              className="border rounded-md px-3 py-2 text-sm text-gray-700 relative z-10 w-full focus:ring-2 focus:ring-blue-600"
-            >
-              <option value="">
-                {mainCategory
-                  ? "Select Subcategory"
-                  : "Choose a main category first"}
-              </option>
-              {mainCategory &&
-                categories[mainCategory].map((sub) => (
-                  <option key={sub.value} value={sub.value}>
-                    {sub.label}
-                  </option>
-                ))}
             </select>
           </div>
 
@@ -171,12 +136,10 @@ export default function JobBoard() {
         </form>
 
         {/* 🌀 Loading & Error */}
-        {loading && (
-          <p className="text-center text-gray-600">Loading jobs...</p>
-        )}
+        {loading && <p className="text-center text-gray-600">Loading jobs...</p>}
         {error && <p className="text-center text-red-500">{error}</p>}
 
-        {/* 🧾 Results */}
+        {/* 📋 Job Results */}
         <div className="grid gap-4">
           {jobs.slice(0, 20).map((job, i) => (
             <a
