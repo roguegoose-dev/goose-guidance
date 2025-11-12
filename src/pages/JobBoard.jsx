@@ -1,23 +1,32 @@
-// src/pages/JobBoard.jsx
 import { useState } from "react";
 import Header from "../components/Header";
 
 export default function JobBoard() {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("Oklahoma");
+  const [category, setCategory] = useState("");
+  const [sortBy, setSortBy] = useState("");
+  const [source, setSource] = useState("all");
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchJobs = async (keywords = keyword, loc = location) => {
+  const fetchJobs = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/jobs?keywords=${encodeURIComponent(keywords)}&location=${encodeURIComponent(loc)}`
-      );
+      const query = new URLSearchParams({
+        keywords: keyword,
+        location,
+        category,
+        sort: sortBy,
+        source,
+      }).toString();
+
+      const response = await fetch(`/api/jobs?${query}`);
       if (!response.ok) throw new Error(`Server error ${response.status}`);
+
       const data = await response.json();
       setJobs(data.jobs || []);
     } catch (err) {
@@ -36,31 +45,61 @@ export default function JobBoard() {
   return (
     <>
       <Header />
-      <div className="max-w-5xl mx-auto py-10 px-4 text-black">
+      <div className="max-w-6xl mx-auto py-10 px-4 text-black">
         <h1 className="text-3xl font-bold mb-6 text-center">Job Board</h1>
 
         {/* Search Bar */}
         <form
           onSubmit={handleSearch}
-          className="flex flex-col md:flex-row gap-4 mb-8 justify-center"
+          className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8"
         >
           <input
             type="text"
-            placeholder="Job title, keywords, or company"
+            placeholder="Keyword or company"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="border rounded-md px-4 py-2 w-full md:w-1/2 focus:ring-2 focus:ring-blue-600"
+            className="border rounded-md px-4 py-2 w-full focus:ring-2 focus:ring-blue-600"
           />
           <input
             type="text"
             placeholder="City or state"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="border rounded-md px-4 py-2 w-full md:w-1/4 focus:ring-2 focus:ring-blue-600"
+            className="border rounded-md px-4 py-2 w-full focus:ring-2 focus:ring-blue-600"
           />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm text-gray-700"
+          >
+            <option value="">All Categories</option>
+            <option value="it-jobs">IT / Tech</option>
+            <option value="healthcare-nursing-jobs">Healthcare</option>
+            <option value="teaching-jobs">Education</option>
+            <option value="engineering-jobs">Engineering</option>
+            <option value="sales-jobs">Sales</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm text-gray-700"
+          >
+            <option value="">Sort by Relevance</option>
+            <option value="date">Newest</option>
+            <option value="salary">Highest Salary</option>
+          </select>
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm text-gray-700 bg-gray-50 hover:bg-white"
+          >
+            <option value="all">All Sources</option>
+            <option value="adzuna">Adzuna Only</option>
+            <option value="careerjet">CareerJet Only</option>
+          </select>
           <button
             type="submit"
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
+            className="md:col-span-5 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
           >
             Search
           </button>
@@ -70,7 +109,7 @@ export default function JobBoard() {
         {loading && <p className="text-center text-gray-600">Loading jobs...</p>}
         {error && <p className="text-center text-red-500">{error}</p>}
 
-        {/* Results */}
+        {/* Job Results */}
         <div className="grid gap-4">
           {jobs.slice(0, 20).map((job, i) => (
             <a
@@ -104,7 +143,7 @@ export default function JobBoard() {
 
         {!loading && !error && jobs.length === 0 && (
           <p className="text-center text-gray-500 mt-8">
-            No jobs found. Try adjusting your search.
+            No jobs found. Try adjusting your filters.
           </p>
         )}
       </div>

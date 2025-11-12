@@ -21,6 +21,9 @@ const __dirname = path.dirname(__filename);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+/* -----------------------------
+   PERSONAS
+----------------------------- */
 const personaPrompts = {
   "ol-goose": `
 You are Ol' Goose — a grounded mentor from eastern Oklahoma.
@@ -34,6 +37,9 @@ You are Go-Getter Goose — a high-energy executive coach.
 Be confident, upbeat, and motivating. End with an action question.`,
 };
 
+/* -----------------------------
+   RISK ANALYZER
+----------------------------- */
 function analyzeRisk(message) {
   const text = (message || "").toLowerCase();
   const risky = ["quit", "burn out", "burnout", "hate my job", "walk away"];
@@ -43,12 +49,14 @@ function analyzeRisk(message) {
   return "medium";
 }
 
-// OCR endpoint
+/* -----------------------------
+   OCR ENDPOINT
+----------------------------- */
 app.post("/api/ocr", upload.single("image"), async (req, res) => {
   try {
     let imageBuffer;
     if (req.body.imageBase64) {
-      const base64 = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const base64 = req.body.imageBase64.replace(/^data:image\/\\w+;base64,/, "");
       imageBuffer = Buffer.from(base64, "base64");
     } else if (req.file) {
       imageBuffer = req.file.buffer;
@@ -66,7 +74,9 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
   }
 });
 
-// Chat endpoint
+/* -----------------------------
+   CHAT ENDPOINT
+----------------------------- */
 app.post("/api/chat", async (req, res) => {
   const { persona, message, history } = req.body;
 
@@ -133,9 +143,17 @@ User: "${message}"
   }
 });
 
-// Unified Job Search: Adzuna + CareerJet
+/* -----------------------------
+   UNIFIED JOB SEARCH (Adzuna + CareerJet)
+----------------------------- */
 app.get("/api/jobs", async (req, res) => {
-  const { keywords = "", location = "Oklahoma" } = req.query;
+  const {
+    keywords = "",
+    location = "Oklahoma",
+    category = "",
+    sort = "",
+    source = "all",
+  } = req.query;
 
   const adzAppId = process.env.VITE_ADZUNA_APP_ID;
   const adzKey = process.env.VITE_ADZUNA_API_KEY;
@@ -151,53 +169,55 @@ app.get("/api/jobs", async (req, res) => {
 
   const adzUrl = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${adzAppId}&app_key=${adzKey}&results_per_page=20&what=${encodeURIComponent(
     keywords
-  )}&where=${encodeURIComponent(location)}`;
+  )}&where=${encodeURIComponent(location)}&category=${encodeURIComponent(
+    category
+  )}&sort_by=${encodeURIComponent(sort)}`;
 
   try {
-    const [adzRes, cjRes] = await Promise.allSettled([
-      fetch(adzUrl),
-      fetch(cjUrl, {
+    let adzJobs = [],
+      cjJobs = [];
+
+    if (source === "adzuna" || source === "all") {
+      const adzRes = await fetch(adzUrl);
+      if (adzRes.ok) {
+        const data = await adzRes.json();
+        adzJobs = (data.results || []).map((j) => ({
+          title: j.title,
+          company: j.company?.display_name,
+          location: j.location?.display_name,
+          salary: j.salary_min ? `$${Math.round(j.salary_min)}+` : "",
+          date: j.created,
+          url: j.redirect_url,
+          source: "Adzuna",
+        }));
+      }
+    }
+
+    if (source === "careerjet" || source === "all") {
+      const cjRes = await fetch(cjUrl, {
         headers: {
           Authorization: `Basic ${Buffer.from(`${cjKey}:`).toString("base64")}`,
           "Content-Type": "application/json",
           Referer: "https://www.guidancegoose.com/",
         },
-      }),
-    ]);
-
-    const adzData =
-      adzRes.status === "fulfilled" && adzRes.value.ok
-        ? await adzRes.value.json()
-        : { results: [] };
-    const cjData =
-      cjRes.status === "fulfilled" && cjRes.value.ok
-        ? await cjRes.value.json()
-        : { jobs: [] };
-
-    const adzJobs = (adzData.results || []).map((j) => ({
-      title: j.title,
-      company: j.company?.display_name,
-      location: j.location?.display_name,
-      salary: j.salary_min ? `$${Math.round(j.salary_min)}+` : "",
-      date: j.created,
-      url: j.redirect_url,
-      source: "Adzuna",
-    }));
-
-    const cjJobs = (cjData.jobs || []).map((j) => ({
-      title: j.title,
-      company: j.company,
-      location: j.locations,
-      salary: j.salary,
-      date: j.date,
-      url: j.url,
-      source: "CareerJet",
-    }));
+      });
+      if (cjRes.ok) {
+        const data = await cjRes.json();
+        cjJobs = (data.jobs || []).map((j) => ({
+          title: j.title,
+          company: j.company,
+          location: j.locations,
+          salary: j.salary,
+          date: j.date,
+          url: j.url,
+          source: "CareerJet",
+        }));
+      }
+    }
 
     const jobs = [...adzJobs, ...cjJobs].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
-
     res.json({ jobs });
   } catch (err) {
     console.error("Job fetch error:", err);
@@ -205,12 +225,17 @@ app.get("/api/jobs", async (req, res) => {
   }
 });
 
-// Static frontend
+/* -----------------------------
+   STATIC FRONTEND
+----------------------------- */
 app.use(express.static(path.join(__dirname, "dist")));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
+/* -----------------------------
+   START SERVER
+----------------------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Goose Guidance running on http://localhost:${PORT}`);
