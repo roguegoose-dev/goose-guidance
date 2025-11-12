@@ -1,3 +1,4 @@
+// src/components/Header.jsx
 import { Link, useLocation } from "react-router-dom";
 
 export default function Header() {
@@ -27,9 +28,10 @@ export default function Header() {
             About
           </Link>
 
+          {/* FIXED: matches route /white-pages */}
           <Link
-            to="/whitepages"
-            className={`hover:underline ${isActive("/whitepages")}`}
+            to="/white-pages"
+            className={`hover:underline ${isActive("/white-pages")}`}
           >
             White Pages
           </Link>
