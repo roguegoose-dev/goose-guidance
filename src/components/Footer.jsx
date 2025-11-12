@@ -24,7 +24,7 @@ export default function Footer() {
 
           <div className="text-center text-sm text-gray-600">
             <a
-              href="mailto:contact@guidancegoose.com"
+              href="mailto:marvin@guidancegoose.com"
               className="hover:underline"
             >
               contact@guidancegoose.com
