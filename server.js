@@ -32,13 +32,11 @@ Speak with subtle Southern warmth — calm, confident, and wise.
 Keep sentences short and natural. Use gentle humor and grounded wisdom.
 Always end with a reflective question.
 `,
-
   "sergeant-goose": `
 You are Sergeant Goose — a disciplined, no-nonsense instructor.
 Speak directly and command attention. Be sharp and decisive.
 End every response with a challenge or action-based question.
 `,
-
   "go-getter-goose": `
 You are Go-Getter Goose — a high-energy executive coach.
 Be confident, fast-paced, and motivating.
@@ -189,14 +187,36 @@ app.get("/api/jobs", async (req, res) => {
       `https://${API_HOSTNAME}${API_SEARCH_PATH}?${params}`,
       { method: "GET", headers }
     );
-
     if (!response.ok) throw new Error(`CareerJet API error ${response.status}`);
-
     const data = await response.json();
     res.json(data);
   } catch (err) {
     console.error("❌ CareerJet error:", err);
     res.status(500).json({ error: "Failed to load jobs." });
+  }
+});
+
+/* -----------------------------------------------------------
+   ADZUNA JOB SEARCH
+----------------------------------------------------------- */
+app.get("/api/adzuna", async (req, res) => {
+  const { keywords = "", location = "Oklahoma" } = req.query;
+
+  const appId = process.env.ADZUNA_APP_ID;
+  const apiKey = process.env.ADZUNA_API_KEY;
+
+  const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${apiKey}&results_per_page=20&what=${encodeURIComponent(
+    keywords
+  )}&where=${encodeURIComponent(location)}&content-type=application/json`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Adzuna API error ${response.status}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("❌ Adzuna error:", err);
+    res.status(500).json({ error: "Failed to load Adzuna jobs." });
   }
 });
 
