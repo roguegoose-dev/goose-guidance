@@ -19,7 +19,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* -----------------------------------------------------------
@@ -74,13 +73,12 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
       return res.status(400).json({ error: "No image provided." });
     }
 
-    console.log("🧠 Running OCR on uploaded image...");
     const {
       data: { text },
     } = await Tesseract.recognize(imageBuffer, "eng");
     res.json({ extractedText: text.trim() });
   } catch (err) {
-    console.error("❌ OCR error:", err);
+    console.error("OCR error:", err);
     res.status(500).json({ error: "Failed to process image with OCR." });
   }
 });
@@ -90,7 +88,6 @@ app.post("/api/ocr", upload.single("image"), async (req, res) => {
 ----------------------------------------------------------- */
 app.post("/api/chat", async (req, res) => {
   const { persona, message, history } = req.body;
-  console.log(`🪶 Persona: ${persona} | Message: ${message}`);
 
   try {
     const conversationSummary = (history || [])
@@ -148,7 +145,7 @@ User: "${message}"
 
     res.json({ persona_voice, audio_url: audioBase64 });
   } catch (err) {
-    console.error("❌ Chat error:", err);
+    console.error("Chat error:", err);
     res.status(500).json({
       error: err.message,
       fallback_message:
@@ -164,7 +161,7 @@ app.get("/api/jobs", async (req, res) => {
   const { keywords = "", location = "Oklahoma" } = req.query;
   const API_HOSTNAME = "search.api.careerjet.net";
   const API_SEARCH_PATH = "/v4/query";
-  const API_KEY = process.env.CAREERJET_API_KEY;
+  const API_KEY = process.env.VITE_CAREERJET_API_KEY;
 
   const params = new URLSearchParams({
     locale_code: "en_US",
@@ -191,7 +188,7 @@ app.get("/api/jobs", async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error("❌ CareerJet error:", err);
+    console.error("CareerJet error:", err);
     res.status(500).json({ error: "Failed to load jobs." });
   }
 });
@@ -202,8 +199,8 @@ app.get("/api/jobs", async (req, res) => {
 app.get("/api/adzuna", async (req, res) => {
   const { keywords = "", location = "Oklahoma" } = req.query;
 
-  const appId = process.env.ADZUNA_APP_ID;
-  const apiKey = process.env.ADZUNA_API_KEY;
+  const appId = process.env.VITE_ADZUNA_APP_ID;
+  const apiKey = process.env.VITE_ADZUNA_API_KEY;
 
   const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${apiKey}&results_per_page=20&what=${encodeURIComponent(
     keywords
@@ -215,7 +212,7 @@ app.get("/api/adzuna", async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error("❌ Adzuna error:", err);
+    console.error("Adzuna error:", err);
     res.status(500).json({ error: "Failed to load Adzuna jobs." });
   }
 });
@@ -232,6 +229,6 @@ app.get("*", (req, res) => {
    START SERVER
 ----------------------------------------------------------- */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`🚀 Goose Guidance running on http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`Goose Guidance running on http://localhost:${PORT}`);
+});
