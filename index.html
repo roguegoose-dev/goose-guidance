@@ -6,10 +6,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>gooseguidance</title>
 
-    <!-- Google AdSense verification code -->
-    <script async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7737814716536886"
-      crossorigin="anonymous"></script>
+    <!-- Load AdSense only outside EEA/UK -->
+    <script>
+      // EU + EEA + UK ISO country codes
+      const EEA_COUNTRIES = new Set([
+        "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT",
+        "LV","LT","LU","MT","NL","PL","PT","RO","SK","SI","ES","SE", // EU
+        "IS","LI","NO", // EEA
+        "GB" // UK
+      ]);
+
+      async function shouldLoadAdsense() {
+        try {
+          // Lightweight geolocation; returns country code like "US", "FR"
+          const res = await fetch("https://ipapi.co/country/", { cache: "no-store" });
+          const cc = (await res.text()).trim();
+          return !EEA_COUNTRIES.has(cc);
+        } catch (e) {
+          // If we can't determine location, be conservative: don't load ads
+          return false;
+        }
+      }
+
+      (async () => {
+        if (await shouldLoadAdsense()) {
+          const s = document.createElement("script");
+          s.async = true;
+          s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7737814716536886";
+          s.crossOrigin = "anonymous";
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

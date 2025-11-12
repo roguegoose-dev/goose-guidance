@@ -21,18 +21,26 @@ export default function Header() {
           <Link to="/" className={`hover:underline ${isActive("/")}`}>
             Home
           </Link>
+
           <Link to="/about" className={`hover:underline ${isActive("/about")}`}>
             About
           </Link>
-          <Link
-            to="/white-pages"
-            className={`hover:underline ${isActive("/white-pages")}`}
+
+          {/* External blog (same tab). If you prefer new tab, add target/_blank + rel */}
+          <a
+            href="https://blog.guidancegoose.com"
+            className="hover:underline"
+            // target="_blank"
+            // rel="noopener noreferrer"
           >
-            White Pages
-          </Link>
-          <Link to="/blog" className={`hover:underline ${isActive("/blog")}`}>
             Blog
+          </a>
+
+          {/* New Jobs page */}
+          <Link to="/jobs" className={`hover:underline ${isActive("/jobs")}`}>
+            Jobs
           </Link>
+
           <Link
             to="/privacy-policy"
             className={`hover:underline ${isActive("/privacy-policy")}`}
